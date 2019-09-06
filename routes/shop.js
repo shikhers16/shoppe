@@ -1,18 +1,23 @@
 //Core Modules
-const path = require('path');
 
 //3rd Party Modules
 const express = require('express');
 
 // Self Modules
-const rootDir = require('../util/path');
-const adminData = require('./admin');
+//Controllers
+const productsController = require('../controllers/products');
 
+// Create Express Router
 const router = express.Router();
 
-router.get('/', (req, res, next) => {
-    console.log('shop,js', adminData.products);
-    res.sendFile(path.join(rootDir, 'views', 'shop.html'));
-});
+// Routes
+router.get('/', productsController.home);
 
+router.get('/products', productsController.getProducts);
+
+router.get('/cart', productsController.getCart);
+
+router.post('/cart', productsController.postCart);
+
+//Exports
 module.exports = router;
