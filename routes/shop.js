@@ -1,23 +1,25 @@
-//Core Modules
+const path = require('path');
 
-//3rd Party Modules
 const express = require('express');
 
-// Self Modules
-//Controllers
-const productsController = require('../controllers/products');
+const shopController = require('../controllers/shop');
 
-// Create Express Router
 const router = express.Router();
 
-// Routes
-router.get('/', productsController.home);
+router.get('/', shopController.getIndex);
 
-router.get('/products', productsController.getProducts);
+router.get('/products', shopController.getProducts);
 
-router.get('/cart', productsController.getCart);
+router.get('/product/:productid', shopController.getProduct);
 
-router.post('/cart', productsController.postCart);
+router.get('/cart', shopController.getCart);
 
-//Exports
+router.post('/cart', shopController.postCart);
+
+router.get('/orders', shopController.getOrders);
+
+router.get('/checkout', shopController.getCheckout);
+
+router.post('/delete-cart-item', shopController.postCartDeleteProduct);
+
 module.exports = router;

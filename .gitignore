@@ -1,1 +1,4 @@
-shoppe.code-workspace
+node_modules
+.vscode
+backup
+shop.code-workspace

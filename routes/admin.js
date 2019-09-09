@@ -1,20 +1,27 @@
-//Core Modules
 const path = require('path');
 
-//3rd Party Modules
 const express = require('express');
 
-// Self Modules
-//Controllers
-const productsController = require('../controllers/products');
+const adminController = require('../controllers/admin');
 
-// Create Express Router
 const router = express.Router();
 
-// Routes
-router.get('/add-product', productsController.getAddProducts);
+// /admin/add-product => GET
+router.get('/add-product', adminController.getAddProduct);
 
-router.post('/add-product', productsController.postAddProducts);
+// /admin/products => GET
+router.get('/products', adminController.getProducts);
 
-//exports
+// /admin/add-product => POST
+router.post('/add-product', adminController.postAddProduct);
+
+// /admin/edit-product => GET
+router.get('/edit-product/:productId', adminController.getEditProduct);
+
+// /admin/edit-product => POST
+router.post('/edit-product', adminController.postEditProduct);
+
+// /admin/edit-product => POST
+router.post('/delete-product', adminController.postdeleteProduct);
+
 module.exports = router;
