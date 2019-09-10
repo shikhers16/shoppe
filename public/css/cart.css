@@ -22,3 +22,20 @@
   margin: 0;
 }
 
+.order__item-list {
+  display: block;
+  max-width: 90%;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  margin: auto;
+}
+
+.order__item {
+  display: block;
+  align-items: center;
+  justify-content: left;
+  padding: 1rem;
+  margin: 1rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.26);
+}
