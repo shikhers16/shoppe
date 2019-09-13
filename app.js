@@ -2,52 +2,117 @@ const path = require('path');
 
 const express = require('express');
 const bodyParser = require('body-parser');
+const multer = require('multer');
+const mongoose = require('mongoose');
+const session = require('express-session');
+const MongoDBStore = require('connect-mongodb-session')(session);
+const csrf = require('csurf');
+const flash = require('connect-flash');
 
 const errorController = require('./controllers/error');
-const mongoose = require('mongoose');
+const shopController = require('./controllers/shop');
+const isauth = require('./middleware/auth').isauth;
 const User = require('./models/user');
 
+const adminRoutes = require('./routes/admin');
+const shopRoutes = require('./routes/shop');
+const authRoutes = require('./routes/auth');
+
+const MONGODB_URI =
+	'mongodb+srv://shikher:Ekr9B36BtzzDuQDl@cluster0-vodl3.mongodb.net/shop?retryWrites=true&w=majority';
 const app = express();
+const store = new MongoDBStore({
+	uri: MONGODB_URI,
+	collection: 'sessions'
+});
+const csrfProtection = csrf();
+const fileStorage = multer.diskStorage({
+	destination: (req, file, cb) => {
+		cb(null, 'images');
+	},
+	filename: (req, file, cb) => {
+		cb(null, new Date().toISOString().replace(/:/g, '-') + '-' + file.originalname);
+	}
+})
+
+const fileFilter = (req, file, cb) => {
+	if (file.mimetype === 'image/png' || file.mimetype === 'image/jpeg' || file.mimetype === 'image/jpg') {
+		cb(null, true);
+	} else {
+		cb(null, false);
+	}
+}
 
 app.set('view engine', 'ejs');
 app.set('views', 'views');
 
-const adminRoutes = require('./routes/admin');
-const shopRoutes = require('./routes/shop');
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(multer({ storage: fileStorage, fileFilter: fileFilter }).single('image'));
 
-app.use(bodyParser.urlencoded({
-	extended: false
-}));
 app.use(express.static(path.join(__dirname, 'public')));
+app.use('/images', express.static(path.join(__dirname, 'images')));
+
+app.use(
+	session({
+		secret: 'my secret',
+		resave: false,
+		saveUninitialized: false,
+		store: store
+	})
+);
+
+app.use(flash());
 
 app.use((req, res, next) => {
-	User.findById("5d78e1fe41ed7b54509bf090")
+	if (!req.session.user) {
+		return next();
+	}
+	User.findById(req.session.user._id)
 		.then(user => {
-			req.user = user
+			req.user = user;
 			next();
 		})
-		.catch(err => console.log(err));
+		.catch(err => {
+			console.log(err);
+			const error = new Error(err);
+			error.httpStatusCode = 500;
+			return next(error);
+		});
+});
+
+app.post('/create-order', isauth, shopController.postOrder);
+
+app.use(csrfProtection);
+
+app.use((req, res, next) => {
+	res.locals.isAuthenticated = req.session.isLoggedIn;
+	res.locals.csrfToken = req.csrfToken();
+	let message = req.flash('error');
+	if (message.length > 0) {
+		message = message[0];
+	} else {
+		message = null;
+	}
+	res.locals.errorMessage = message;
+	next();
 });
 
 app.use('/admin', adminRoutes);
 app.use(shopRoutes);
+app.use(authRoutes);
 
 app.use(errorController.get404);
 
+app.use(errorController.get500);
+
 mongoose
-	.connect('mongodb+srv://shikher:Ekr9B36BtzzDuQDl@cluster0-vodl3.mongodb.net/shop?retryWrites=true')
+	.connect(MONGODB_URI)
 	.then(result => {
-		User.findOne().then(user => {
-			if (!user) {
-				const user = new User({
-					username: 'Shikher',
-					email: 'shikher@test.com',
-					cart: {
-						items: []
-					}
-				})
-				user.save();
-			}
-		})
 		app.listen(3000);
-	}).catch(err => console.log(err))
+	})
+	.catch(err => {
+		const error = new Error(err);
+		error.httpStatusCode = 500;
+		return next(error);
+		console.log(err);
+	});

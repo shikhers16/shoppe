@@ -125,31 +125,84 @@ exports.postCartDeleteProduct = (req, res, next) => {
 };
 
 exports.getCheckout = (req, res, next) => {
+	let products; // THIS WAS MOVED - had to put it here, to make it accessible by all then() blocks.
+	let total = 0;// THIS WAS MOVED - had to put it here, to make it accessible by all then() blocks.
 	req.user
 		.populate('cart.items.productId')
 		.execPopulate()
 		.then(user => {
-			const products = user.cart.items;
-			let total = 0;
+			products = user.cart.items;
 			products.forEach(p => {
-				total += p.productId.price * p.quantity
-			})
+				const cost = parseFloat((p.quantity * p.productId.price).toFixed(2));
+				total += cost;
+			});
+			return stripe.checkout.sessions.create({ // THIS WAS ADDED - configures a Stripe session
+				payment_method_types: ['card'],
+				line_items: products.map(p => {
+					return {
+						name: p.productId.title,
+						description: p.productId.description,
+						amount: parseFloat((p.productId.price * 100).toFixed(2)),
+						currency: 'usd',
+						quantity: p.quantity
+					};
+				}),
+				success_url: 'http://localhost:3000/checkout/success', // THIS WAS ADDED
+				cancel_url: 'http://localhost:3000/checkout/cancel' // THIS WAS ADDED
+			});
+		})
+		.then(session => {
+			console.log(session);
 			res.render('shop/checkout', {
 				path: '/checkout',
 				pageTitle: 'Checkout',
 				products: products,
-				total: total
+				total: total,
+				sessionId: session.id // THIS WAS ADDED - we need that in the checkout.ejs file (see above)
 			});
 		})
 		.catch(err => {
-			console.log(err);
 			const error = new Error(err);
 			error.httpStatusCode = 500;
 			return next(error);
 		});
-}
+};
 
-
+exports.getCheckoutSuccess = (req, res, next) => {
+	let totalSum = 0;
+	req.user
+		.populate('cart.items.productId')
+		.execPopulate()
+		.then(user => {
+			user.cart.items.forEach(p => {
+				totalSum += p.quantity * p.productId.price;
+			});
+			const products = user.cart.items.map(i => {
+				return { quantity: i.quantity, product: { ...i.productId._doc } };
+			});
+			const order = new Order({
+				user: {
+					email: req.user.email,
+					userId: req.user
+				},
+				products: products,
+				paid: true
+			});
+			return order.save();
+		})
+		.then(() => {
+			return req.user.clearCart();
+		})
+		.then(() => {
+			res.redirect('/orders');
+		})
+		.catch(err => {
+			const error = new Error(err);
+			console.log(err);
+			error.httpStatusCode = 500;
+			return next(error);
+		});
+};
 exports.postOrder = (req, res, next) => {
 	// Token is created using Checkout or Elements!
 	// Get the payment token ID submitted by the form:
